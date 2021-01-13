@@ -16,22 +16,18 @@ type IDContainer interface {
 
 // Container default id container
 type Container struct {
-	sync.Locker
 	A []int64
 }
 
 // NewIDContainer create document id container
 func NewIDContainer() IDContainer {
 	return &Container{
-		Locker: &sync.Mutex{},
-		A:      make([]int64, 0, 10000),
+		A: make([]int64, 0, 10000),
 	}
 }
 
 // Push document ID into container
 func (c *Container) Push(id int64) {
-	c.Lock()
-	defer c.Unlock()
 	i := 0
 	for ; i < len(c.A); i++ {
 		if c.A[i] == id {
@@ -46,8 +42,6 @@ func (c *Container) Push(id int64) {
 
 // Pop  remove document ID from container
 func (c *Container) Pop(id int64) {
-	c.Lock()
-	defer c.Unlock()
 	for i := 0; i < len(c.A); i++ {
 		if c.A[i] == id {
 			c.A = append(c.A[:i], c.A[i+1:]...)
@@ -67,22 +61,22 @@ func (c *Container) Array() []int64 {
 
 // Index implement inverted index
 type Index struct {
-	sync.Locker
-	M map[string]IDContainer
+	lock *sync.RWMutex
+	M    map[string]IDContainer
 }
 
 //NewIndex create inverted index
 func NewIndex() Index {
 	return Index{
-		Locker: &sync.Mutex{},
-		M:      make(map[string]IDContainer),
+		lock: &sync.RWMutex{},
+		M:    make(map[string]IDContainer),
 	}
 }
 
 // Push push keyword and document id into index
 func (i Index) Push(k string, id int64) {
-	i.Lock()
-	defer i.Unlock()
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	if v, ok := i.M[k]; ok {
 		v.Push(id)
 		return
@@ -94,6 +88,8 @@ func (i Index) Push(k string, id int64) {
 
 // Pop remove document id from keyword
 func (i Index) Pop(k string, id int64) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	if v, ok := i.M[k]; ok {
 		v.Pop(id)
 	}
@@ -101,6 +97,8 @@ func (i Index) Pop(k string, id int64) {
 
 // GetAllID get all document id
 func (i Index) GetAllID(k string) []int64 {
+	i.lock.RLock()
+	defer i.lock.RUnlock()
 	if v, ok := i.M[k]; ok {
 		return v.Array()
 	}

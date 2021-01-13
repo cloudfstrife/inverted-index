@@ -20,3 +20,5 @@ vendor/
 
 # sonar
 /sonar
+
+go.sum
